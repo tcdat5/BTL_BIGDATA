@@ -133,7 +133,12 @@ class Runner:
     def find_data(self) -> list:
         """Tìm các CSV trong data.raw_files dưới raw_dir (đệ quy). Báo lỗi rõ nếu thiếu."""
         if not self.raw_dir.exists():
-            raise FileNotFoundError("RAW_DIR không tồn tại: %s" % self.raw_dir)
+            # Kaggle đổi chỗ mount dataset theo thời gian (vd /kaggle/input/datasets/<owner>/<slug>) -> tìm khắp /kaggle/input
+            fallback = Path("/kaggle/input")
+            if not fallback.exists():
+                raise FileNotFoundError("RAW_DIR không tồn tại: %s" % self.raw_dir)
+            print("[warn] RAW_DIR %s không tồn tại -> tìm trong %s" % (self.raw_dir, fallback))
+            self.raw_dir = fallback
         found = sorted(p for p in self.raw_dir.rglob("*") if p.suffix.lower() == ".csv")
         print("CSV tìm thấy dưới %s (%d file):" % (self.raw_dir, len(found)))
         for p in found:

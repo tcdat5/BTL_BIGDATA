@@ -12,7 +12,7 @@ OUT = Path(__file__).resolve().parent / "kaggle_notebook.ipynb"
 MD_INTRO = """# BTL_BigDeep — Deep Learning pipeline trên Kaggle
 
 Chạy một lượt bằng **Save Version → Save & Run All**. Trước khi chạy:
-1. **Add Data**: dataset CSE-CIC-IDS2018 (CSV) — đặt `RAW_DIR` ở ô dưới cho đúng thư mục `/kaggle/input/...`.
+1. **Add Data**: dataset CSE-CIC-IDS2018 (CSV) — mặc định `RAW_DIR = "/kaggle/input"` tự tìm CSV theo ngày.
 2. **Accelerator**: GPU (T4 x2 hoặc P100). **Internet**: On (cần cho git clone / pip / apt).
 3. Chạy thử với `QUICK = True` (< 15 phút), xong mới đặt `QUICK = False`.
 
@@ -20,7 +20,7 @@ Kết quả: `/kaggle/working/kaggle_outputs.zip` (models/, results/, reports/, 
 
 CELL_PARAMS = '''# ===== Tham số =====
 QUICK = False                      # True: 1 file CSV, train 50k / test 20k, 3 epoch
-RAW_DIR = "/kaggle/input/ids-intrusion-csv"   # thư mục chứa CSV CSE-CIC-IDS2018 (tìm đệ quy)
+RAW_DIR = "/kaggle/input"        # thư mục chứa CSV CSE-CIC-IDS2018 (tìm đệ quy, khớp theo ngày)
 WORK_DIR = "/kaggle/working"
 REPO_URL = "https://github.com/tcdat5/BTL_BIGDEEP.git"   # repo public: git clone
 CODE_DATASET = ""                  # repo private: đường dẫn Kaggle Dataset chứa mã nguồn, vd "/kaggle/input/btl-bigdeep-code"
@@ -47,7 +47,7 @@ if missing:
     subprocess.run([sys.executable, "-m", "pip", "install", "-q"] + missing, check=True)
 print("pip install:", missing or "không thiếu gì")'''
 
-CELL_JAVA = '''# ===== 2. Java cho PySpark (Spark 3.5.1 hỗ trợ Java 17) =====
+CELL_JAVA = '''# ===== 2. Java cho PySpark (Spark 3.5: Java 17; Spark 4: Java 17/21) =====
 import glob
 def java_ok():
     try:
@@ -58,10 +58,10 @@ def java_ok():
 if not java_ok():
     subprocess.run("apt-get update -qq && apt-get install -y -qq openjdk-17-jre-headless", shell=True, check=True)
     java_ok()
-homes = sorted(glob.glob("/usr/lib/jvm/java-17*"))
-if homes and not os.environ.get("JAVA_HOME"):
-    os.environ["JAVA_HOME"] = homes[0]
-print("JAVA_HOME =", os.environ.get("JAVA_HOME"))'''
+if not os.environ.get("JAVA_HOME") and shutil.which("java"):
+    os.environ["JAVA_HOME"] = os.path.dirname(os.path.dirname(os.path.realpath(shutil.which("java"))))
+print("JAVA_HOME =", os.environ.get("JAVA_HOME"))
+import pyspark; print("pyspark", pyspark.__version__, "| python", sys.version.split()[0])'''
 
 CELL_FIND = '''# ===== 3. Tìm dữ liệu =====
 from train.kaggle_run_all import Runner
