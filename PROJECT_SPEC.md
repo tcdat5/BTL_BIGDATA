@@ -29,7 +29,7 @@ Sản phẩm cuối phải có đủ:
 **Chưa biết, KHÔNG được đoán cứng trong code:** hostname/IP, port, phiên bản Spark/Kafka, RAM/CPU mỗi VM, đường dẫn HDFS.
 → Mọi giá trị này để trong `config.yaml` (có `config.example.yaml` commit vào repo). Hỏi người dùng nếu cần.
 
-**Đã xác nhận (12/10/2026):** Spark 3.5.1 (Scala 2.13), Java 8 (OpenJDK 1.8.0_402), Hadoop 3.3.0, Python 3.8.10 trên cụm. Kafka 3.7.2 (Scala 2.13), KRaft, single broker `master:9092`. Connector: `org.apache.spark:spark-sql-kafka-0-10_2.13:3.5.1`. ONNX opset <= 17. Smoke test local dùng Java 8 hoặc 11.
+**Đã xác nhận (12/10/2026):** Spark 3.5.1 (Scala 2.13), Java 8 (OpenJDK 1.8.0_402), Hadoop 3.3.0, Python 3.8.10 trên cụm. Kafka 3.7.0 (Scala 2.13), KRaft, single broker `master:9092`. Connector: `org.apache.spark:spark-sql-kafka-0-10_2.13:3.5.1`. ONNX opset <= 17. Smoke test local dùng Java 8 hoặc 11.
 
 ## 3. Cấu trúc repo
 

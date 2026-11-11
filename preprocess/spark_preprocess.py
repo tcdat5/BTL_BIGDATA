@@ -55,6 +55,8 @@ def parse_args(argv=None):
     p.add_argument("--executor-memory", default=None)
     p.add_argument("--driver-memory", default=None)
     p.add_argument("--shuffle-partitions", type=int, default=None)
+    p.add_argument("--persist-level", default=None, choices=["MEMORY_AND_DISK", "DISK_ONLY"],
+                   help="mặc định spark.persist_level hoặc MEMORY_AND_DISK; slave ít RAM dùng DISK_ONLY")
     p.add_argument("--debug-repartition", type=int, default=None, help=argparse.SUPPRESS)
     a = p.parse_args(argv)
     cfg = C.load_config(a.config)
@@ -69,6 +71,7 @@ def parse_args(argv=None):
     a.executor_memory = a.executor_memory or C.get(cfg, "spark.executor_memory")
     a.driver_memory = a.driver_memory or C.get(cfg, "spark.driver_memory")
     a.shuffle_partitions = a.shuffle_partitions or C.get(cfg, "spark.shuffle_partitions", 12)
+    a.persist_level = a.persist_level or C.get(cfg, "spark.persist_level", "MEMORY_AND_DISK")
     return a
 
 
@@ -89,7 +92,8 @@ def col(name: str):
 def build_spark(a):
     from pyspark.sql import SparkSession
     b = SparkSession.builder.appName("btl-preprocess") \
-        .config("spark.sql.shuffle.partitions", str(a.shuffle_partitions))
+        .config("spark.sql.shuffle.partitions", str(a.shuffle_partitions)) \
+        .config("spark.sql.ansi.enabled", "false")   # Spark 4 (Kaggle) bật ANSI mặc định; giữ hành vi cast của 3.5
     if a.master:
         b = b.master(a.master)
     if a.executor_memory:
@@ -222,6 +226,7 @@ def main(argv=None) -> dict:
 
     stats = {"timings_s": {}, "rows": {}, "files": list(a.files)}
     t_all = time.time()
+    level = getattr(StorageLevel, a.persist_level)
     spark = build_spark(a)
     # --files nhận tên file (ghép với --input-dir) hoặc đường dẫn đầy đủ (/... hoặc hdfs://...)
     paths = [f if (f.startswith("/") or "://" in f) else "%s/%s" % (a.input_dir.rstrip("/"), f) for f in a.files]
@@ -235,14 +240,14 @@ def main(argv=None) -> dict:
         stats["rows"]["raw"] = raw.count()
         n_cols_raw = len(raw.columns)
         clean, feats = cast_and_clean(raw)
-        clean = clean.persist(StorageLevel.MEMORY_AND_DISK)
+        clean = clean.persist(level)
         stats["rows"]["after_clean"] = clean.count()
     with timed(stats, "constant_cols"):
         clean, feats, const = drop_constant(clean, feats)
         stats["n_features"] = len(feats)
         stats["features"] = feats
     with timed(stats, "dedup"):
-        dedup = with_bucket(dedup_with_ids(clean, feats)).persist(StorageLevel.MEMORY_AND_DISK)
+        dedup = with_bucket(dedup_with_ids(clean, feats)).persist(level)
         stats["rows"]["after_dedup"] = dedup.count()
         clean.unpersist()
     r = stats["rows"]

@@ -12,6 +12,8 @@ mkdir -p results data
 
 spark-submit --master "$(cfg cluster.spark_master)" \
   --driver-memory "$(cfg spark.driver_memory)" --executor-memory "$(cfg spark.executor_memory)" \
+  --executor-cores "$(cfg spark.executor_cores)" \
+  --total-executor-cores "${TOTAL_CORES:-$(cfg spark.total_executor_cores)}" \
   --conf spark.pyspark.python=python3 \
   preprocess/spark_preprocess.py --export-sample "$SAMPLE_HDFS" --demo-out data/demo_test.parquet "$@" \
   2>&1 | tee results/preprocess.log

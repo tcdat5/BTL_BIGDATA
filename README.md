@@ -6,9 +6,9 @@ Kế hoạch: `docs/superpowers/plans/2026-10-12-network-anomaly-detection.md`.
 ## Môi trường
 | Nơi | Python | Ghi chú |
 |---|---|---|
-| Cụm (master, slave1, slave2) | 3.8.10 | Spark 3.5.1 (Scala 2.13), Java 8, Hadoop 3.3.0, Kafka 3.7.2 KRaft trên master |
+| Cụm (master, slave1, slave2) | 3.8.10 | Spark 3.5.1 (Scala 2.13), Java 8, Hadoop 3.3.0, Kafka 3.7.0 KRaft trên master |
 | Kaggle | 3.11+ | GPU cho DL, CPU cho baseline |
-| Dev local | 3.12 venv (phần train) + Docker (phần cụm: Python 3.8 + Java 8 + Kafka 3.7.2) | |
+| Dev local | 3.12 venv (phần train) + Docker (phần cụm: Python 3.8 + Java 8 + Kafka 3.7.0) | |
 
 `requirements-cluster.txt` đã kiểm chứng cài được trên Python 3.8 (image `docker/Dockerfile.cluster-test`):
 pyspark 3.5.1, kafka-python 2.0.6, onnxruntime 1.17.3, numpy 1.24.4, pandas 2.0.3, pyarrow 14.0.2,
@@ -70,6 +70,38 @@ Sidebar: chọn model (mọi `models/*.onnx`), cách đặt ngưỡng (đã lưu
 Start/Pause/Reset, "Phát nhanh 1.000 flow". Tab: Giám sát (không nhãn) · Đánh giá (nhãn thật) · Kết quả nghiên cứu.
 Nguồn Spark Streaming (sau này): `streamlit run dashboard/app.py -- --source stream --stream-dir results/stream/default`.
 
+## Cụm: dữ liệu, kiểm tra, streaming (chạy trên master)
+**Dữ liệu.** Tải 4 CSV (giữ tên dài như `data.raw_files`) vào `data/raw/` rồi đưa lên HDFS. Không cần Internet trên VM:
+tải trên laptop rồi share/scp sang.
+```bash
+aws s3 cp --no-sign-request "s3://cse-cic-ids2018/Processed Traffic Data for ML Algorithms/Wednesday-14-02-2018_TrafficForML_CICFlowMeter.csv" data/raw/
+# tương tự Friday-16-02-2018, Wednesday-21-02-2018, Friday-02-03-2018
+hdfs dfs -mkdir -p /user/$USER/cicids2018/raw && hdfs dfs -put data/raw/*.csv /user/$USER/cicids2018/raw/
+```
+Repo để trong VirtualBox Shared Folder thì chỉ đọc code/CSV từ đó; `streaming.output_dir`, `checkpoint_dir` để trên
+đĩa local của VM hoặc HDFS (vboxsf chậm và lỗi rename/lock). Gọi script bằng `bash scripts/...` (vboxsf mất quyền +x).
+
+**Kiểm tra cụm.**
+```bash
+bash scripts/check_cluster.sh            # đọc config.yaml; in [PASS]/[FAIL] cho HDFS, Spark, Kafka
+```
+
+**Streaming.** Cần `models/ae.onnx`, `models/threshold.json`, `models/scaler.json` (từ `kaggle_outputs.zip` hoặc
+`run_preprocess.sh`). Producer gửi **feature gốc** (chưa chuẩn hoá); `stream_detect` chuẩn hoá bằng `scaler.json`.
+Inference mặc định chạy **trên executor** (`foreachBatch` + `mapInPandas`): cả 3 VM phải cài `requirements-cluster.txt`;
+model/scaler/threshold được gửi qua `SparkContext.addFile`. Nếu slave thiếu package: thêm `--inference driver`.
+Output: `results/stream/default/batch-*.parquet` (đĩa master) + `results/stream_batches.csv`.
+```bash
+# Terminal 1: detector
+bash scripts/run_stream.sh --clean --starting-offsets latest
+# Terminal 2: producer — test đầy đủ (hdfs) cho benchmark, hoặc data/demo_test.parquet cho demo
+python3 streaming/producer.py --create-topic --input hdfs:///user/$USER/cicids2018/processed/test --rate 2000 --limit 200000
+python3 streaming/producer.py --input data/demo_test.parquet --rate 500
+# Terminal 3: dashboard
+streamlit run dashboard/app.py -- --source stream --stream-dir results/stream/default
+# Đổi model: --model models/vae.onnx --threshold models/threshold_vae.json
+```
+
 ## Test local
 ```powershell
 py -3.12 -m venv .venv
@@ -77,7 +109,7 @@ py -3.12 -m venv .venv
 .venv\Scripts\python -m pytest -q                                                      # phần train + common
 docker compose -f docker/docker-compose.test.yml build cluster
 docker compose -f docker/docker-compose.test.yml run --rm --no-deps cluster pytest -q  # phần cụm (Py3.8 + Java 8)
-docker compose -f docker/docker-compose.test.yml run --rm cluster pytest -q            # kèm Kafka 3.7.2 (test kafka/e2e)
+docker compose -f docker/docker-compose.test.yml run --rm cluster pytest -q            # kèm Kafka 3.7.0 (test kafka/e2e)
 ```
 Máy dev Windows có Smart App Control: numpy 2.5 bị chặn DLL `numpy.random._mt19937` → trong venv dùng
 `pip install "numpy==2.2.6"` (chỉ cho máy dev, Kaggle không cần).

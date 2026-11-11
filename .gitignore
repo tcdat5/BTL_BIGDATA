@@ -17,3 +17,5 @@ results/**/*.npy
 results/stream/
 results/ablation/
 results/holdout/models/
+wheels/
+vm_backup/
