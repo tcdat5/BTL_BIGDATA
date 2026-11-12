@@ -83,15 +83,18 @@ def load_frame(path, features, limit: int = 0) -> pd.DataFrame:
     return df.head(limit) if limit else df
 
 
-def iter_messages(df: pd.DataFrame, features, id_offset: int = 0):
+def iter_messages(df: pd.DataFrame, features, id_offset: int = 0, chunk: int = 5000):
+    """Đổi sang object Python theo từng khối: cả 480k dòng một lúc tốn > 1 GB RAM (master chỉ có 3.8 GB)."""
     features = list(features)
-    vals = df[features].to_numpy(dtype=np.float64).tolist()
-    ids = df[ID_COL].astype("int64").tolist()
-    ts = df[TS_COL].astype(str).tolist()
-    labels = df[LABEL_COL].astype(str).tolist()
-    for i in range(len(ids)):
-        yield {"flow_id": ids[i] + id_offset, "orig_ts": ts[i], "label": labels[i],
-               "features": dict(zip(features, vals[i]))}
+    for s in range(0, len(df), chunk):
+        part = df.iloc[s:s + chunk]
+        vals = part[features].to_numpy(dtype=np.float64).tolist()
+        ids = part[ID_COL].astype("int64").tolist()
+        ts = part[TS_COL].astype(str).tolist()
+        labels = part[LABEL_COL].astype(str).tolist()
+        for i in range(len(ids)):
+            yield {"flow_id": ids[i] + id_offset, "orig_ts": ts[i], "label": labels[i],
+                   "features": dict(zip(features, vals[i]))}
 
 
 def ensure_topic(bootstrap: str, topic: str, partitions: int) -> None:
