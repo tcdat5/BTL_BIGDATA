@@ -100,13 +100,21 @@ def plot(csv_path: Path, rep: Path) -> None:
     fig.savefig(rep / "stream_latency.png", dpi=150)
     plt.close(fig)
 
+    def xlabel(rate):     # producer không đạt rate mục tiêu -> ghi kèm rate thực tế
+        if "actual_rate" not in df:
+            return "%d" % rate
+        act = df.loc[df["rate"] == rate, "actual_rate"].mean()
+        return "%d" % rate if not act == act or act >= 0.9 * rate else "%d\n(thực tế ~%d)" % (rate, act)
     piv_t = df.pivot_table(index="rate", columns="n_workers", values="throughput_rps")
     piv_l = df.pivot_table(index="rate", columns="n_workers", values="lat_p95_ms")
+    labels = [xlabel(r) for r in piv_t.index]
     fig, (a1, a2) = plt.subplots(1, 2, figsize=(11, 4))
-    piv_t.plot.bar(ax=a1)
+    piv_t.plot.bar(ax=a1, rot=0)
     a1.set(xlabel="rate mục tiêu (msg/s)", ylabel="throughput (flow/s)", title="Throughput: số worker")
-    piv_l.plot.bar(ax=a2)
+    piv_l.plot.bar(ax=a2, rot=0)
     a2.set(xlabel="rate mục tiêu (msg/s)", ylabel="latency p95 (ms)", title="Latency p95: số worker")
+    a1.set_xticklabels(labels, fontsize=8)
+    a2.set_xticklabels(labels, fontsize=8)
     for ax in (a1, a2):
         ax.legend(title="worker", fontsize=8)
     fig.tight_layout()
