@@ -61,7 +61,7 @@ def date_tokens(name: str) -> set:
 
 class Runner:
     def __init__(self, raw_dir, work_dir, quick=False, file_map=None, config=None, python=sys.executable,
-                 holdout_attacks=None):
+                 holdout_attacks=None, only=None):
         # tuyệt đối: script con chạy với cwd=ROOT, đường dẫn tương đối sẽ sai
         self.raw_dir = Path(raw_dir).resolve()
         self.work = Path(work_dir).resolve()
@@ -70,6 +70,10 @@ class Runner:
         self.cfg = C.load_config(config)
         self.py = python
         self.holdout_attacks = list(holdout_attacks or HOLDOUT_ATTACKS)
+        self.only = set(only) if only else None      # None = chạy mọi stage
+        bad = sorted((self.only or set()) - set(STAGES))
+        if bad:
+            raise ValueError("stage không hợp lệ: %s (có: %s)" % (bad, ", ".join(STAGES)))
         self.timings = []
         self.paths = {}
         for k, sub in (("processed", "data/processed"), ("sample", "data/kaggle_sample"),
@@ -106,6 +110,9 @@ class Runner:
     def stage(self, name: str):
         """Chạy một stage, ghi thời gian; lỗi -> in traceback và chạy tiếp (trừ CRITICAL)."""
         fn = getattr(self, "st_" + name)
+        if self.only is not None and name not in self.only:
+            print("[stage] %s -> bỏ qua (không có trong STAGES)" % name, flush=True)
+            return "not selected"
         print("\n" + "=" * 70 + "\n[stage] %s  (%s)\n" % (name, time.strftime("%H:%M:%S")) + "=" * 70, flush=True)
         t0 = time.time()
         status = "ok"

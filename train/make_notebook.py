@@ -25,7 +25,11 @@ WORK_DIR = "/kaggle/working"
 REPO_URL = "https://github.com/tcdat5/BTL_BIGDEEP.git"   # repo public: git clone
 CODE_DATASET = ""                  # repo private: đường dẫn Kaggle Dataset chứa mã nguồn, vd "/kaggle/input/btl-bigdeep-code"
 CODE_DIR = "/kaggle/working/BTL_BIGDEEP"
-FILE_MAP = {}                      # nếu tên file khác config: {"Wednesday-14-02-2018_TrafficForML_CICFlowMeter.csv": "02-14-2018.csv"}'''
+FILE_MAP = {}                      # nếu tên file khác config: {"Wednesday-14-02-2018_TrafficForML_CICFlowMeter.csv": "02-14-2018.csv"}
+# None = chạy tất cả. Chỉ chạy một phần, vd ablation + EDA (khoảng 25 phút):
+# STAGES = ["preprocess", "eda", "ae", "vae", "ablation", "eda_latent"]
+# Các stage: preprocess, eda, ae, mlp, vae, dae, baselines, ablation, holdout, eda_latent, report
+STAGES = None'''
 
 CELL_SETUP = '''# ===== 1. Thiết lập: phần cứng, mã nguồn, package =====
 import os, sys, shutil, subprocess, importlib.util
@@ -65,7 +69,7 @@ import pyspark; print("pyspark", pyspark.__version__, "| python", sys.version.sp
 
 CELL_FIND = '''# ===== 3. Tìm dữ liệu =====
 from train.kaggle_run_all import Runner
-R = Runner(raw_dir=RAW_DIR, work_dir=WORK_DIR, quick=QUICK, file_map=FILE_MAP)
+R = Runner(raw_dir=RAW_DIR, work_dir=WORK_DIR, quick=QUICK, file_map=FILE_MAP, only=STAGES)
 R.find_data()'''
 
 STAGE_CELLS = [
