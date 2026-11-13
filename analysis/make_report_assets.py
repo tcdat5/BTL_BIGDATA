@@ -233,19 +233,23 @@ def plot_ablation(res: Path, rep: Path):
     ab = pd.read_csv(p)
 
     def f1_fpr(sub, xlabels, title, xlabel, path):
-        """Hai biểu đồ cạnh nhau (F1 | FPR) — không dùng hai trục y."""
+        """Hai biểu đồ cạnh nhau (F1 | PR-AUC), cùng thang 0–1 — không dùng hai trục y.
+        FPR bị ngưỡng p99 ghim ~1% nên chỉ ghi chú, không vẽ (vẽ sẽ phóng đại nhiễu)."""
         x = np.arange(len(sub))
-        fig, (a1, a2) = plt.subplots(1, 2, figsize=(10, 3.8))
-        a1.plot(x, sub["f1"], marker="o", color=CATEGORICAL[0])
-        a1.set(ylabel="F1", title="F1")
-        a2.plot(x, sub["fpr"], marker="o", color=CATEGORICAL[0])
-        a2.set(ylabel="FPR", title="FPR")
-        for ax in (a1, a2):
+        fig, axes = plt.subplots(1, 2, figsize=(10, 3.8))
+        for ax, col, name in zip(axes, ("f1", "pr_auc"), ("F1 (ngưỡng p99)", "PR-AUC (không phụ thuộc ngưỡng)")):
+            ax.plot(x, sub[col], marker="o", color=CATEGORICAL[0])
+            for xi, v in zip(x, sub[col]):
+                ax.annotate("%.3f" % v, (xi, v), textcoords="offset points", xytext=(0, 7),
+                            ha="center", fontsize=8, color="#374151")
+            ax.set(title=name, ylim=(0, 1.05))
             ax.set_xticks(x)
             ax.set_xticklabels(xlabels, fontsize=8)
             ax.set_xlabel(xlabel)
         ep = int(sub["max_epochs"].max()) if "max_epochs" in sub else None
-        fig.suptitle(title + (" (tối đa %d epoch)" % ep if ep else ""))
+        fig.suptitle(title + (" (tối đa %d epoch)" % ep if ep else "")
+                     + "\nFPR %.2f–%.2f%% ở mọi cấu hình (ngưỡng = p99 score val Benign)"
+                     % (100 * sub["fpr"].min(), 100 * sub["fpr"].max()), fontsize=11)
         save(fig, path)
 
     lat = ab[ab["experiment"] == "latent"].assign(v=lambda d: d["value"].astype(float)).sort_values("v")
